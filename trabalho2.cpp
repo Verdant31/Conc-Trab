@@ -110,63 +110,39 @@ int main()
 // o último cão que está lá dentro sair. (O processo é recíproco para caso haja gatos comendo
 // e chegue um cão.)
 //////////////////////////////////////////////////////////////
-auto empty = semaphore(MAX_PETS);
-auto full = semaphore(0);
-std::mutex mtx;
+auto empty = semaphore(1);
+auto dog_semaphore = semaphore(1);
+auto cat_sempahore = semaphore(1);
 
-int dogs_count = 0;
-int cats_count = 0;
+auto dog_count = semaphore(MAX_PETS);
+auto cat_count = semaphore(MAX_PETS);
 
-std::vector<int> buffer;
-std::vector<int> animalsEating;
+auto lock = semaphore(1);
 
-bool dogsAreEating = false;
-bool catsAreEating = false;
-
-bool dogsAreHungry = false;
-bool catsAreHungry = false;
-
-bool findAnimal(int id)
-{
-	bool find = false;
-	for (int i = 0; i < animalsEating.size(); i++)
-	{
-		if (animalsEating[i] == id)
-		{
-			find = true;
-			break;
-		}
-	}
-	return find;
-}
+int dog_counter = 0;
+int cat_counter = 0;
 
 void cat(int const id)
 {
 	while (true)
 	{
 		do_stuff(id, "cat", "playing");
-		std::printf("%d cats count \n", cats_count);
-		// Se os cachorros estão pedindo pra comer, o gato não pode mais entrar
-		if (dogsAreHungry && not(cats_count >= MAX_PETS))
-			break;
-		// Se o numero de gatos já está no limite, não pode mais entrar gato
-		if (cats_count >= MAX_PETS)
-		{
-			cats_count = 0;
-			break;
-		}
-		// Se nenhuma das afirmativas acima é verdade, então o gato pode comer
-		empty.acquire();
-		mtx.lock();
-
-		dogsAreEating = false;
-		catsAreEating = true;
-		cats_count++;
-
+		lock.acquire();
+		cat_sempahore.acquire();
+		cat_counter++;
+		if (cat_counter == 1)
+			empty.acquire();
+		cat_sempahore.release();
+		lock.release();
+		cat_count.acquire();
+		// Entra na região critica
 		do_stuff(id, "cat", "eating");
-
-		mtx.unlock();
-		empty.release();
+		cat_count.release();
+		cat_sempahore.acquire();
+		cat_counter--;
+		if (cat_counter == 0)
+			empty.release();
+		cat_sempahore.release();
 	}
 }
 
@@ -175,31 +151,22 @@ void dog(int const id)
 	while (true)
 	{
 		do_stuff(id, "dog", "playing");
-		std::printf("%d dogs count \n", dogs_count);
-
-		// Se os gatos estão pedindo pra comer, o cachorro não pode mais entrar
-		if (catsAreHungry && not(dogs_count >= MAX_PETS))
-			break;
-		// Se o numero de cachorros já está no limite, não pode mais entrar cachorro
-		if (dogs_count >= MAX_PETS)
-		{
-			dogs_count = 0;
-			break;
-		}
-		// Se nenhuma das afirmativas acima é verdade, então o cachorro pode comer
-		full.acquire();
-		mtx.lock();
-
-		catsAreEating = false;
-		dogsAreEating = true;
-		dogs_count++;
-
+		lock.acquire();
+		dog_semaphore.acquire();
+		dog_counter++;
+		if (dog_counter == 1)
+			empty.acquire();
+		dog_semaphore.release();
+		lock.release();
+		dog_count.acquire();
+		// Entra na região critica
 		do_stuff(id, "dog", "eating");
-
-		dogs_count--;
-
-		mtx.unlock();
-		empty.release();
+		dog_count.release();
+		dog_semaphore.acquire();
+		dog_counter--;
+		if (dog_counter == 0)
+			empty.release();
+		dog_semaphore.release();
 	}
 }
 
